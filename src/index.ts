@@ -8,6 +8,7 @@ const app = express();
 app.use(express.json());
 
 const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
+const CHANNEL = `live-comments`;
 
 // Create a Redis publisher client
 const publisher = createClient({ url: REDIS_URL });
@@ -31,12 +32,11 @@ app.post("/videos/:videoId/comments", async (req: Request, res:Response):Promise
 
     const message = JSON.stringify({
       videoId,
-      comment,
+      cmtText:comment,
       time: new Date().toISOString(),
     });
 
-    const channel = `comments:${videoId}`;
-    await publisher.publish(channel, message);
+    await publisher.publish(CHANNEL, message);
 
     return res.status(200).json({ status: "Comment published" });
   } catch (error) {
@@ -45,7 +45,7 @@ app.post("/videos/:videoId/comments", async (req: Request, res:Response):Promise
   }
 });
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`Comment Publisher Service running on port ${PORT}`);
 });
