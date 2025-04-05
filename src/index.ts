@@ -1,8 +1,10 @@
+import dotenv from "dotenv";
+dotenv.config();
 import express, { Request, Response } from "express";
 import { createClient } from "redis";
-import dotenv from "dotenv";
-
-dotenv.config();
+import connectDb from "./db";
+import { runMigration } from "./db/init";
+import { insertComment } from "./commentRepo";
 
 const app = express();
 app.use(express.json());
@@ -25,6 +27,18 @@ publisher.on("error", (err) => console.error("Redis Publisher Error:", err));
   console.log("Publisher connected to Redis");
 })();
 
+runMigration()
+  .then(() => {
+    // Connecting to db
+    connectDb();
+  })
+  .then(() => {
+    console.log("✅ App connected to Cassandra (with keyspace)");
+  })
+  .catch((err) => {
+    console.error("❌ Error connecting Cassandra after migration:", err);
+  });
+
 // Fix: Ensure the handler returns a valid Response
 //TODO: fix tsx error
 app.post(
@@ -32,21 +46,26 @@ app.post(
   async (req: Request, res: Response): Promise<any> => {
     try {
       const { videoId } = req.params;
-      const { comment } = req.body;
+      const { comment, author } = req.body;
 
       if (!comment) {
         return res.status(400).json({ error: "Comment text is required" });
       }
 
+      //write in db
+      await insertComment(comment,author);
+      
+      //prepare string message
       const message = JSON.stringify({
         videoId,
         cmtText: comment,
         time: new Date().toISOString(),
       });
-
+      
+      // publish in redis
       await publisher.publish(CHANNEL, message);
 
-      return res.status(200).json({ status: "Comment published" });
+      return res.status(200).json({ status: "Comment published", message });
     } catch (error) {
       console.error("Error publishing comment:", error);
       return res.status(500).json({ error: "Internal Server Error" });
