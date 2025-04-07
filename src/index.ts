@@ -27,17 +27,17 @@ publisher.on("error", (err) => console.error("Redis Publisher Error:", err));
   console.log("Publisher connected to Redis");
 })();
 
-runMigration()
-  .then(() => {
-    // Connecting to db
-    connectDb();
-  })
-  .then(() => {
-    console.log("✅ App connected to Cassandra (with keyspace)");
-  })
-  .catch((err) => {
-    console.error("❌ Error connecting Cassandra after migration:", err);
-  });
+// runMigration()
+//   .then(() => {
+//     // Connecting to db
+//     connectDb();
+//   })
+//   .then(() => {
+//     console.log("✅ App connected to Cassandra (with keyspace)");
+//   })
+//   .catch((err) => {
+//     console.error("❌ Error connecting Cassandra after migration:", err);
+//   });
 
 // Fix: Ensure the handler returns a valid Response
 //TODO: fix tsx error
@@ -53,7 +53,7 @@ app.post(
       }
 
       //write in db
-      await insertComment(comment,author);
+      // await insertComment(comment,author);
       
       //prepare string message
       const message = JSON.stringify({
