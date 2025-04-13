@@ -9,16 +9,12 @@ import { insertComment } from "./commentRepo";
 const app = express();
 app.use(express.json());
 
-const REDIS_HOST = process.env.REDIS_HOST;
-const REDIS_PORT = process.env.REDIS_PORT || "6379";
+const REDIS_URL = process.env.REDIS_URL;
 const CHANNEL = `live-comments`;
 
 // Create a Redis publisher client
 const publisher = createClient({
-  socket: {
-    host: REDIS_HOST,
-    port: parseInt(REDIS_PORT),
-  },
+  url: REDIS_URL,
 });
 publisher.on("error", (err) => console.error("Redis Publisher Error:", err));
 
