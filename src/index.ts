@@ -5,6 +5,9 @@ import { createClient } from "redis";
 import connectDb from "./cassandraDb";
 import { runMigration } from "./cassandraDb/init";
 import { insertComment } from "./commentRepo";
+import { v4 as uuidv4 } from "uuid";
+import { storeComment } from "./db/services";
+import { IComment } from "./interfaces";
 
 const app = express();
 app.use(express.json());
@@ -50,16 +53,28 @@ app.post(
 
       //write in db
       // await insertComment(comment,author);
-      
-      //prepare string message
-      const message = JSON.stringify({
+
+      // Store comment in database
+      const commentData: IComment = {
+        id: uuidv4(),
+        userId: author,
         videoId,
-        cmtText: comment,
-        time: new Date().toISOString(),
-      });
-      
+        comment,
+        createdAt: new Date().toISOString(),
+      };
+      await storeComment(commentData);
+
       // publish in redis
+      const message = JSON.stringify({
+        userId: author,
+        videoId,
+        comment,
+        createdAt: new Date().toISOString(),
+      });
       await publisher.publish(CHANNEL, message);
+      console.log(
+        `[${new Date().toISOString()}] Published message for video ${videoId}: ${message}`
+      );
 
       return res.status(200).json({ status: "Comment published", message });
     } catch (error) {

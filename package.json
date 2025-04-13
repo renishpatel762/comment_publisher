@@ -25,6 +25,9 @@
   },
   "homepage": "https://github.com/renishpatel762/comment_publisher#readme",
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.788.0",
+    "@aws-sdk/lib-dynamodb": "^3.788.0",
+    "aws-sdk": "^2.1692.0",
     "cassandra-driver": "^4.8.0",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
