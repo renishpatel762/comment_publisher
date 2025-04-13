@@ -1,8 +1,9 @@
 export interface IComment {
   id: string;
-  userId: string;
+  author: string;
   comment: string;
   videoId: string;
+  likes: number;
   createdAt: string;
 }
 

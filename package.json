@@ -30,11 +30,13 @@
     "@aws-sdk/lib-dynamodb": "^3.788.0",
     "aws-sdk": "^2.1692.0",
     "cassandra-driver": "^4.8.0",
+    "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "redis": "^4.7.0"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.17",
     "@types/express": "^5.0.1",
     "@types/node": "^22.13.13",
     "nodemon": "^3.1.9",

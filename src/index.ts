@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 dotenv.config();
 import express, { Request, Response } from "express";
+import cors from "cors";
 import { createClient } from "redis";
 import connectDb from "./cassandraDb";
 import { runMigration } from "./cassandraDb/init";
@@ -34,6 +35,8 @@ publisher.on("error", (err) => console.error("Redis Publisher Error:", err));
   console.log("Publisher connected to Redis");
 })();
 
+app.use(cors());
+
 // runMigration()
 //   .then(() => {
 //     // Connecting to db
@@ -62,20 +65,16 @@ app.post(
       // Store comment in database
       const commentData: IComment = {
         id: uuidv4(),
-        userId: author,
+        author,
         videoId,
         comment,
+        likes: 0,
         createdAt: new Date().toISOString(),
       };
       await storeComment(commentData);
 
       // publish in redis
-      const message = JSON.stringify({
-        userId: author,
-        videoId,
-        comment,
-        createdAt: new Date().toISOString(),
-      });
+      const message = JSON.stringify(commentData);
       await publisher.publish(CHANNEL, message);
       console.log(
         `[${new Date().toISOString()}] Published message for video ${videoId}: ${message}`
