@@ -2,8 +2,8 @@ import dotenv from "dotenv";
 dotenv.config();
 import express, { Request, Response } from "express";
 import { createClient } from "redis";
-import connectDb from "./db";
-import { runMigration } from "./db/init";
+import connectDb from "./cassandraDb";
+import { runMigration } from "./cassandraDb/init";
 import { insertComment } from "./commentRepo";
 
 const app = express();
