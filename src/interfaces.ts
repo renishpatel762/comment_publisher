@@ -5,3 +5,9 @@ export interface IComment {
   videoId: string;
   createdAt: string;
 }
+
+export interface GetCommentsParams {
+  videoId: string;
+  limit?: number;
+  lastEvaluatedKey?: Record<string, any>;
+}

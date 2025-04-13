@@ -6,7 +6,7 @@ import connectDb from "./cassandraDb";
 import { runMigration } from "./cassandraDb/init";
 import { insertComment } from "./commentRepo";
 import { v4 as uuidv4 } from "uuid";
-import { storeComment } from "./db/services";
+import { getPaginatedCommentsByVideoId, storeComment } from "./db/services";
 import { IComment } from "./interfaces";
 
 const app = express();
@@ -83,6 +83,31 @@ app.post(
     }
   }
 );
+
+app.get("/videos/:videoId/comments", async (req, res) => {
+  const { videoId } = req.params;
+  const { limit, nextPageKey } = req.query;
+
+  try {
+    const result = await getPaginatedCommentsByVideoId({
+      videoId: videoId,
+      limit: Number(limit) || 10,
+      lastEvaluatedKey: nextPageKey
+        ? JSON.parse(decodeURIComponent(nextPageKey as string))
+        : undefined,
+    });
+
+    res.json({
+      comments: result.comments,
+      nextPageKey: result.nextPageKey
+        ? encodeURIComponent(JSON.stringify(result.nextPageKey))
+        : null,
+    });
+  } catch (err) {
+    console.error("Error getting comments:", err);
+    res.status(500).json({ message: "Failed to get comments." });
+  }
+});
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
