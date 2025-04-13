@@ -11,7 +11,11 @@ import {
   storeComment,
 } from "./services/comment.services";
 import { IComment } from "./interfaces";
-import { getAllVideos, storeVideo } from "./services/video.services";
+import {
+  deleteVideoById,
+  getAllVideos,
+  storeVideo,
+} from "./services/video.services";
 
 const app = express();
 app.use(express.json());
@@ -111,14 +115,17 @@ app.get("/videos/:videoId/comments", async (req, res) => {
 });
 
 app.post("/videos", async (req: Request, res: Response) => {
-  const { url } = req.body;
-  if (!url) {
-    res.status(400).json({ error: "url are required" });
+  const { url, name } = req.body;
+  if (!url || !name) {
+    res.status(400).json({ error: "url or name are required" });
     return;
   }
 
   try {
-    await storeVideo({ url });
+    await storeVideo({
+      url,
+      name,
+    });
     res.status(201).json({ message: "Video created successfully" });
   } catch (error) {
     console.error("Error creating video:", error);
@@ -129,6 +136,25 @@ app.post("/videos", async (req: Request, res: Response) => {
 app.get("/videos", async (req: Request, res: Response) => {
   try {
     const videos = await getAllVideos();
+    res.status(200).json({
+      message: "Videos fetched successfully",
+      data: videos,
+    });
+  } catch (error) {
+    console.error("Error creating video:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+app.delete("/videos/:id", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    if (!id || typeof id !== "string") {
+      res.status(400).json({ error: "id is required" });
+      return;
+    }
+
+    const videos = await deleteVideoById(id);
     res.status(200).json({
       message: "Videos fetched successfully",
       data: videos,

@@ -7,6 +7,7 @@ export interface IComment {
 }
 
 export interface IVideo {
+  name: string;
   url: string;
 }
 
