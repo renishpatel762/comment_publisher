@@ -6,6 +6,10 @@ export interface IComment {
   createdAt: string;
 }
 
+export interface IVideo {
+  url: string;
+}
+
 export interface GetCommentsParams {
   videoId: string;
   limit?: number;

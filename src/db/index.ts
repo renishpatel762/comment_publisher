@@ -5,6 +5,7 @@ const REGION = process.env.AWS_REGION;
 const translateConfig: TranslateConfig = {
   marshallOptions: {
     convertClassInstanceToMap: true,
+    removeUndefinedValues: true,
   },
 };
 

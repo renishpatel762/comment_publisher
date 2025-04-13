@@ -1,6 +1,6 @@
 import { PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { GetCommentsParams, IComment } from "../interfaces";
-import { ddbDocClient } from ".";
+import { ddbDocClient } from "../db";
 
 export const storeComment = async (comment: IComment) => {
   const command = new PutCommand({

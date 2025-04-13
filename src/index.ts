@@ -6,8 +6,12 @@ import connectDb from "./cassandraDb";
 import { runMigration } from "./cassandraDb/init";
 import { insertComment } from "./commentRepo";
 import { v4 as uuidv4 } from "uuid";
-import { getPaginatedCommentsByVideoId, storeComment } from "./db/services";
+import {
+  getPaginatedCommentsByVideoId,
+  storeComment,
+} from "./services/comment.services";
 import { IComment } from "./interfaces";
+import { getAllVideos, storeVideo } from "./services/video.services";
 
 const app = express();
 app.use(express.json());
@@ -50,9 +54,6 @@ app.post(
       if (!comment) {
         return res.status(400).json({ error: "Comment text is required" });
       }
-
-      //write in db
-      // await insertComment(comment,author);
 
       // Store comment in database
       const commentData: IComment = {
@@ -106,6 +107,35 @@ app.get("/videos/:videoId/comments", async (req, res) => {
   } catch (err) {
     console.error("Error getting comments:", err);
     res.status(500).json({ message: "Failed to get comments." });
+  }
+});
+
+app.post("/videos", async (req: Request, res: Response) => {
+  const { url } = req.body;
+  if (!url) {
+    res.status(400).json({ error: "url are required" });
+    return;
+  }
+
+  try {
+    await storeVideo({ url });
+    res.status(201).json({ message: "Video created successfully" });
+  } catch (error) {
+    console.error("Error creating video:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+app.get("/videos", async (req: Request, res: Response) => {
+  try {
+    const videos = await getAllVideos();
+    res.status(200).json({
+      message: "Videos fetched successfully",
+      data: videos,
+    });
+  } catch (error) {
+    console.error("Error creating video:", error);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
