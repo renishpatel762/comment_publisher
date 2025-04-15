@@ -2,12 +2,14 @@ import dotenv from "dotenv";
 dotenv.config();
 import express, { Request, Response } from "express";
 import { createClient } from "redis";
-import connectDb from "./db";
-import { runMigration } from "./db/init";
-import { insertComment } from "./commentRepo";
+// import connectDb from "./db";
+// import { runMigration } from "./db/init";
+// import { insertComment } from "./commentRepo";
+import cors from "cors";
 
 const app = express();
 app.use(express.json());
+app.use(cors());
 
 const REDIS_URL = process.env.REDIS_URL;
 const CHANNEL = `live-comments`;
@@ -44,6 +46,7 @@ app.post(
       const { videoId } = req.params;
       const { comment, author } = req.body;
 
+      console.log({comment,author});
       if (!comment) {
         return res.status(400).json({ error: "Comment text is required" });
       }
