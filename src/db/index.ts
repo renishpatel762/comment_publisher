@@ -1,17 +1,19 @@
-import cassandraClient from './cassandraClient';
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient, TranslateConfig } from "@aws-sdk/lib-dynamodb";
 
-async function connectDb() {
-  try {
-    await cassandraClient.connect();
-    console.log('✅ Connected to Cassandra');
+const REGION = process.env.AWS_REGION;
+const translateConfig: TranslateConfig = {
+  marshallOptions: {
+    convertClassInstanceToMap: true,
+    removeUndefinedValues: true,
+  },
+};
 
-    const result = await cassandraClient.execute('SELECT release_version FROM system.local');
-    console.log('Cassandra version:', result.rows[0].release_version);
-
-    // await cassandraClient.shutdown();
-  } catch (error) {
-    console.error('❌ Cassandra connection failed:', error);
-  }
-}
-
-export default connectDb;
+const client = new DynamoDBClient({
+  region: REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID ?? "",
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY ?? "",
+  },
+});
+export const ddbDocClient = DynamoDBDocumentClient.from(client, translateConfig);

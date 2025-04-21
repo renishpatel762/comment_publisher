@@ -1,4 +1,4 @@
-import cassandraClient from './db/cassandraClient';
+import cassandraClient from './cassandraDb/cassandraClient';
 
 export async function insertComment(content: string, author: string): Promise<void> {
   const query = `

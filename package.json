@@ -7,7 +7,8 @@
     "dev": "nodemon --exec ts-node src/index.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "create-tables": "ts-node src/models/index.ts"
   },
   "repository": {
     "type": "git",
@@ -25,6 +26,9 @@
   },
   "homepage": "https://github.com/renishpatel762/comment_publisher#readme",
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.788.0",
+    "@aws-sdk/lib-dynamodb": "^3.788.0",
+    "aws-sdk": "^2.1692.0",
     "cassandra-driver": "^4.8.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
