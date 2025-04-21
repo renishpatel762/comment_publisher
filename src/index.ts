@@ -9,6 +9,7 @@ import { createClient } from "redis";
 import { v4 as uuidv4 } from "uuid";
 import {
   getPaginatedCommentsByVideoId,
+  getTotalCommentsCount,
   storeComment,
 } from "./services/comment.services";
 import { IComment } from "./interfaces";
@@ -95,15 +96,19 @@ app.get("/videos/:videoId/comments", async (req, res) => {
   const { limit, nextPageKey } = req.query;
 
   try {
-    const result = await getPaginatedCommentsByVideoId({
-      videoId: videoId,
-      limit: Number(limit) || 10,
-      lastEvaluatedKey: nextPageKey
-        ? JSON.parse(decodeURIComponent(nextPageKey as string))
-        : undefined,
-    });
+    const [totalCommentsCount, result] = await Promise.all([
+      getTotalCommentsCount(videoId),
+      getPaginatedCommentsByVideoId({
+        videoId: videoId,
+        limit: Number(limit) || 10,
+        lastEvaluatedKey: nextPageKey
+          ? JSON.parse(decodeURIComponent(nextPageKey as string))
+          : undefined,
+      }),
+    ]);
 
     res.json({
+      count: totalCommentsCount,
       comments: result.comments,
       nextPageKey: result.nextPageKey
         ? encodeURIComponent(JSON.stringify(result.nextPageKey))
