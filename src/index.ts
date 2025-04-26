@@ -8,6 +8,7 @@ import { createClient } from "redis";
 // import { insertComment } from "./commentRepo";
 import { v4 as uuidv4 } from "uuid";
 import {
+  deleteCommentsByVideoId,
   getPaginatedCommentsByVideoId,
   getTotalCommentsCount,
   storeComment,
@@ -84,6 +85,28 @@ app.post(
       );
 
       return res.status(200).json({ status: "Comment published", message });
+    } catch (error) {
+      console.error("Error publishing comment:", error);
+      return res.status(500).json({ error: "Internal Server Error" });
+    }
+  }
+);
+
+app.delete(
+  "/videos/:videoId/comments",
+  async (req: Request, res: Response): Promise<any> => {
+    try {
+      const { videoId } = req.params;
+      if (!videoId) {
+        return res.status(400).json({ error: "videoId is required" });
+      }
+
+      await deleteCommentsByVideoId(videoId);
+
+      const message = `All comments deleted of videoId: ${videoId}`;
+      console.log('message: ', message);
+
+      return res.status(200).json({ status: true, message });
     } catch (error) {
       console.error("Error publishing comment:", error);
       return res.status(500).json({ error: "Internal Server Error" });
