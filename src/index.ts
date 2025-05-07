@@ -7,6 +7,8 @@ import { createClient } from "redis";
 // import { runMigration } from "./cassandraDb/init";
 // import { insertComment } from "./commentRepo";
 import { v4 as uuidv4 } from "uuid";
+import http from "http";
+import { Server } from "socket.io";
 import {
   deleteCommentsByVideoId,
   getPaginatedCommentsByVideoId,
@@ -40,6 +42,40 @@ publisher.on("error", (err) => console.error("Redis Publisher Error:", err));
 
 app.use(cors());
 
+const server = http.createServer(app);
+
+const io = new Server(server, {
+  cors: {
+    origin: process.env.CLIENT_HOST,
+  },
+});
+
+const emailToSocketIdMap = new Map<string, string>();
+const socketIdToEmailMap = new Map<string, string>();
+
+io.on("connection", (socket) => {
+  console.log("New client connected:", socket.id);
+
+  socket.on("room:join", (data) => {
+    console.log("Received message:", data);
+    // Broadcast to all other clients
+    // socket.broadcast.emit("message", data);
+    const { email, room } = data;
+
+    emailToSocketIdMap.set(email, socket.id);
+    socketIdToEmailMap.set(socket.id, email);
+
+    socket.join(room);
+
+    io.to(room).emit("user:joined", { email, socketId: socket.id });
+    io.to(socket.id).emit("room:join", data);
+  });
+
+  socket.on("disconnect", () => {
+    console.log("Client disconnected:", socket.id);
+  });
+});
+
 // runMigration()
 //   .then(() => {
 //     // Connecting to db
@@ -61,7 +97,7 @@ app.post(
       const { videoId } = req.params;
       const { comment, author } = req.body;
 
-      console.log({comment,author});
+      console.log({ comment, author });
       if (!comment) {
         return res.status(400).json({ error: "Comment text is required" });
       }
@@ -104,7 +140,7 @@ app.delete(
       await deleteCommentsByVideoId(videoId);
 
       const message = `All comments deleted of videoId: ${videoId}`;
-      console.log('message: ', message);
+      console.log("message: ", message);
 
       return res.status(200).json({ status: true, message });
     } catch (error) {
@@ -195,6 +231,6 @@ app.delete("/videos/:id", async (req: Request, res: Response) => {
 });
 
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Comment Publisher Service running on port ${PORT}`);
 });
