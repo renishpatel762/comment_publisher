@@ -43,7 +43,7 @@ app.use((0, cors_1.default)());
 const server = http_1.default.createServer(app);
 const io = new socket_io_1.Server(server, {
     cors: {
-        origin: process.env.CLIENT_HOST,
+        origin: "*",
     },
 });
 const emailToSocketIdMap = new Map();
