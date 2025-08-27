@@ -19,6 +19,8 @@ import {
   getAllVideos,
   storeVideo,
 } from "./services/video.services";
+import monitoringRouter,{prometheusRequestCounter, prometheusResponseTime} from './monitoring';
+import { logger } from "./lokiLogger";
 
 const app = express();
 app.use(express.json());
@@ -38,6 +40,8 @@ publisher.on("error", (err) => console.error("Redis Publisher Error:", err));
   console.log("Publisher connected to Redis");
 })();
 
+app.use(prometheusResponseTime);
+app.use(prometheusRequestCounter);
 app.use(cors());
 
 // runMigration()
@@ -75,7 +79,7 @@ app.post(
         likes: 0,
         createdAt: new Date().toISOString(),
       };
-      await storeComment(commentData);
+      // await storeComment(commentData);
 
       // publish in redis
       const message = JSON.stringify(commentData);
@@ -83,10 +87,12 @@ app.post(
       console.log(
         `[${new Date().toISOString()}] Published message for video ${videoId}: ${message}`
       );
+      logger.info('Comment published')
 
       return res.status(200).json({ status: "Comment published", message });
     } catch (error) {
       console.error("Error publishing comment:", error);
+      logger.error('Error publishing comment', error);
       return res.status(500).json({ error: "Internal Server Error" });
     }
   }
@@ -193,6 +199,8 @@ app.delete("/videos/:id", async (req: Request, res: Response) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
+
+app.use('/metrics', monitoringRouter);
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
