@@ -79,7 +79,7 @@ app.post(
         likes: 0,
         createdAt: new Date().toISOString(),
       };
-      await storeComment(commentData);
+      // await storeComment(commentData);
 
       // publish in redis
       const message = JSON.stringify(commentData);

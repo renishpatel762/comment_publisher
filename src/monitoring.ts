@@ -7,14 +7,6 @@ const register = new Registry();
 // Collect default Node.js/runtime metrics
 collectDefaultMetrics({ register });
 
-// // Custom counter: total HTTP requests
-// const httpRequestCounter = new Counter({
-//   name: 'http_requests_total',
-//   help: 'Total number of HTTP requests',
-//   labelNames: ['method', 'route', 'status_code'],
-// });
-// register.registerMetric(httpRequestCounter);
-
 // // Custom histogram: HTTP request durations
 const httpRequestDuration = new Histogram({
   name: 'http_request_duration_seconds',
@@ -57,19 +49,6 @@ export function prometheusRequestCounter(
   });
   next();
 }
-
-
-
-// Middleware: start timer, increment counter on finish, record duration
-// router.use((req: Request, res: Response, next) => {
-//   const endTimer = httpRequestDuration.startTimer();
-//   res.on('finish', () => {
-//     const route = req.route?.path || req.path;
-//     httpRequestCounter.labels(req.method, route, res.statusCode.toString()).inc();
-//     endTimer({ method: req.method, route, status_code: res.statusCode });
-//   });
-//   next();
-// });
 
 // Expose metrics
 router.get('/', async (_req, res) => {
