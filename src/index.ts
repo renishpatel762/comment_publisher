@@ -3,28 +3,23 @@ dotenv.config();
 import express, { Request, Response } from "express";
 import cors from "cors";
 import { createClient } from "redis";
-// import connectDb from "./cassandraDb";
-// import { runMigration } from "./cassandraDb/init";
-// import { insertComment } from "./commentRepo";
 import { v4 as uuidv4 } from "uuid";
-import {
-  deleteCommentsByVideoId,
-  getPaginatedCommentsByVideoId,
-  getTotalCommentsCount,
-  storeComment,
-} from "./services/comment.services";
 import { IComment } from "./interfaces";
-import {
-  deleteVideoById,
-  getAllVideos,
-  storeVideo,
-} from "./services/video.services";
-import monitoringRouter,{prometheusRequestCounter, prometheusResponseTime} from './monitoring';
 import { logger } from "./lokiLogger";
+import { 
+  metricsMiddleware, 
+  trackRedisOperation, 
+  commentsPublishedTotal,
+  activeConnections,
+  register 
+} from "./metrics";
 
 const app = express();
 app.use(express.json());
 app.use(cors());
+
+// Apply metrics middleware
+app.use(metricsMiddleware);
 
 const REDIS_URL = process.env.REDIS_URL;
 const CHANNEL = `live-comments`;
@@ -33,40 +28,42 @@ const CHANNEL = `live-comments`;
 const publisher = createClient({
   url: REDIS_URL,
 });
-publisher.on("error", (err) => console.error("Redis Publisher Error:", err));
+publisher.on("error", (err) => {
+  console.error("Redis Publisher Error:", err);
+  logger.error("Redis Publisher Error", { error: err.message });
+});
+
+publisher.on("connect", () => {
+  activeConnections.inc();
+  logger.info("Redis publisher connected");
+});
+
+publisher.on("end", () => {
+  activeConnections.dec();
+  logger.info("Redis publisher disconnected");
+});
 
 (async () => {
   await publisher.connect();
   console.log("Publisher connected to Redis");
 })();
 
-app.use(prometheusResponseTime);
-app.use(prometheusRequestCounter);
-app.use(cors());
-
-// runMigration()
-//   .then(() => {
-//     // Connecting to db
-//     connectDb();
-//   })
-//   .then(() => {
-//     console.log("✅ App connected to Cassandra (with keyspace)");
-//   })
-//   .catch((err) => {
-//     console.error("❌ Error connecting Cassandra after migration:", err);
-//   });
-
-// Fix: Ensure the handler returns a valid Response
-//TODO: fix tsx error
 app.post(
   "/videos/:videoId/comments",
   async (req: Request, res: Response): Promise<any> => {
+    const startTime = Date.now();
     try {
       const { videoId } = req.params;
       const { comment, author } = req.body;
 
-      console.log({comment,author});
+      logger.info("Comment creation request", { 
+        videoId, 
+        author, 
+        hasComment: !!comment 
+      });
+
       if (!comment) {
+        logger.warn("Comment creation failed - missing comment", { videoId, author });
         return res.status(400).json({ error: "Comment text is required" });
       }
 
@@ -79,130 +76,76 @@ app.post(
         likes: 0,
         createdAt: new Date().toISOString(),
       };
-      // await storeComment(commentData);
 
-      // publish in redis
+      // Publish in Redis with metrics tracking
       const message = JSON.stringify(commentData);
-      await publisher.publish(CHANNEL, message);
+      await trackRedisOperation('publish', async () => {
+        await publisher.publish(CHANNEL, message);
+      });
+
+      // Track successful comment publication
+      commentsPublishedTotal.labels(videoId).inc();
+
+      const processingTime = Date.now() - startTime;
       console.log(
         `[${new Date().toISOString()}] Published message for video ${videoId}: ${message}`
       );
-      logger.info('Comment published')
+      
+      logger.info('Comment published successfully', { 
+        videoId, 
+        commentId: commentData.id,
+        processingTime: `${processingTime}ms`
+      });
 
-      return res.status(200).json({ status: "Comment published", message });
+      return res.status(200).json({ 
+        status: "Comment published", 
+        commentId: commentData.id,
+        message 
+      });
     } catch (error) {
+      const processingTime = Date.now() - startTime;
       console.error("Error publishing comment:", error);
-      logger.error('Error publishing comment', error);
+      logger.error('Error publishing comment', { 
+        error: error instanceof Error ? error.message : 'Unknown error',
+        videoId: req.params.videoId,
+        processingTime: `${processingTime}ms`
+      });
       return res.status(500).json({ error: "Internal Server Error" });
     }
   }
 );
 
-app.delete(
-  "/videos/:videoId/comments",
-  async (req: Request, res: Response): Promise<any> => {
-    try {
-      const { videoId } = req.params;
-      if (!videoId) {
-        return res.status(400).json({ error: "videoId is required" });
-      }
-
-      await deleteCommentsByVideoId(videoId);
-
-      const message = `All comments deleted of videoId: ${videoId}`;
-      console.log('message: ', message);
-
-      return res.status(200).json({ status: true, message });
-    } catch (error) {
-      console.error("Error publishing comment:", error);
-      return res.status(500).json({ error: "Internal Server Error" });
-    }
-  }
-);
-
-app.get("/videos/:videoId/comments", async (req, res) => {
-  const { videoId } = req.params;
-  const { limit, nextPageKey } = req.query;
-
-  try {
-    const [totalCommentsCount, result] = await Promise.all([
-      getTotalCommentsCount(videoId),
-      getPaginatedCommentsByVideoId({
-        videoId: videoId,
-        limit: Number(limit) || 10,
-        lastEvaluatedKey: nextPageKey
-          ? JSON.parse(decodeURIComponent(nextPageKey as string))
-          : undefined,
-      }),
-    ]);
-
-    res.json({
-      count: totalCommentsCount,
-      comments: result.comments,
-      nextPageKey: result.nextPageKey
-        ? encodeURIComponent(JSON.stringify(result.nextPageKey))
-        : null,
-    });
-  } catch (err) {
-    console.error("Error getting comments:", err);
-    res.status(500).json({ message: "Failed to get comments." });
-  }
+// Health check endpoint
+app.get('/health', (req: Request, res: Response) => {
+  res.status(200).json({ 
+    status: 'healthy', 
+    service: 'comment_publisher',
+    timestamp: new Date().toISOString()
+  });
 });
 
-app.post("/videos", async (req: Request, res: Response) => {
-  const { url, name } = req.body;
-  if (!url || !name) {
-    res.status(400).json({ error: "url or name are required" });
-    return;
-  }
-
+// Metrics endpoint for Prometheus
+app.get('/metrics', async (req: Request, res: Response) => {
   try {
-    await storeVideo({
-      url,
-      name,
-    });
-    res.status(201).json({ message: "Video created successfully" });
+    const metrics = await register.metrics();
+    res.set('Content-Type', register.contentType);
+    res.send(metrics);
   } catch (error) {
-    console.error("Error creating video:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    console.error('Error generating metrics:', error);
+    res.status(500).send('Error generating metrics');
   }
 });
 
-app.get("/videos", async (req: Request, res: Response) => {
-  try {
-    const videos = await getAllVideos();
-    res.status(200).json({
-      message: "Videos fetched successfully",
-      data: videos,
-    });
-  } catch (error) {
-    console.error("Error creating video:", error);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  console.log('SIGTERM received, shutting down gracefully');
+  logger.info('Service shutting down');
+  await publisher.disconnect();
+  process.exit(0);
 });
-
-app.delete("/videos/:id", async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    if (!id || typeof id !== "string") {
-      res.status(400).json({ error: "id is required" });
-      return;
-    }
-
-    const videos = await deleteVideoById(id);
-    res.status(200).json({
-      message: "Videos fetched successfully",
-      data: videos,
-    });
-  } catch (error) {
-    console.error("Error creating video:", error);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-});
-
-app.use('/metrics', monitoringRouter);
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`Comment Publisher Service running on port ${PORT}`);
+  logger.info(`Comment Publisher Service started`, { port: PORT });
 });
